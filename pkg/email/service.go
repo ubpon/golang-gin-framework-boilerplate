@@ -307,4 +307,4 @@ const passwordResetTemplate = `
         <p>© 2025 MyApp. All rights reserved.</p>
     </div>
 </body>
-</html>
+</html>`
