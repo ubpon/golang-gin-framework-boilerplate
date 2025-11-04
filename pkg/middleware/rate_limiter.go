@@ -25,7 +25,7 @@ func RateLimiter() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
-		
+
 		mu.Lock()
 		v, exists := visitors[ip]
 		if !exists {

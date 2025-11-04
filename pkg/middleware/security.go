@@ -2,6 +2,7 @@ package middleware
 
 import "github.com/gin-gonic/gin"
 
+// SecurityHeaders adds security headers to responses
 func SecurityHeaders() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("X-Content-Type-Options", "nosniff")

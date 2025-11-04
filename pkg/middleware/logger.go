@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// RequestLogger logs incoming requests
 func RequestLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -17,7 +18,7 @@ func RequestLogger() gin.HandlerFunc {
 
 		latency := time.Since(start)
 		statusCode := c.Writer.Status()
-		
+
 		log.Printf("[%s] %s %s - Status: %d - Duration: %v",
 			method,
 			path,

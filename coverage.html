@@ -1,0 +1,892 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>api: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">app/cmd/api/main.go (0.0%)</option>
+				
+				<option value="file1">app/internal/auth/delivery/http/auth_handler.go (73.5%)</option>
+				
+				<option value="file2">app/internal/auth/domain.go (0.0%)</option>
+				
+				<option value="file3">app/internal/auth/repository/postgres/user_repository.go (0.0%)</option>
+				
+				<option value="file4">app/internal/auth/usecase/auth_usecase.go (91.1%)</option>
+				
+				<option value="file5">app/pkg/middleware/auth.go (82.8%)</option>
+				
+				<option value="file6">app/pkg/middleware/cors.go (100.0%)</option>
+				
+				<option value="file7">app/pkg/middleware/logger.go (100.0%)</option>
+				
+				<option value="file8">app/pkg/middleware/rate_limiter.go (75.0%)</option>
+				
+				<option value="file9">app/pkg/middleware/security.go (100.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">// cmd/api/main.go
+package main
+
+import (
+        "context"
+        "log"
+        "net/http"
+        "os"
+        "os/signal"
+        "strings"
+        "syscall"
+        "time"
+
+        "github.com/gin-gonic/gin"
+        "github.com/joho/godotenv"
+        "gorm.io/driver/postgres"
+        "gorm.io/gorm"
+
+        "app/internal/auth"
+        authHttp "app/internal/auth/delivery/http"
+        authRepo "app/internal/auth/repository/postgres"
+        authUsecase "app/internal/auth/usecase"
+        "app/pkg/middleware"
+)
+
+func main() <span class="cov0" title="0">{
+        // Load environment variables
+        if err := godotenv.Load(); err != nil </span><span class="cov0" title="0">{
+                log.Println("No .env file found")
+        }</span>
+
+        // Initialize database
+        <span class="cov0" title="0">db, err := initDB()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatal("Failed to connect to database:", err)
+        }</span>
+
+        // Run migrations
+        <span class="cov0" title="0">if err := db.AutoMigrate(&amp;auth.User{}); err != nil </span><span class="cov0" title="0">{
+                log.Fatal("Failed to migrate database:", err)
+        }</span>
+
+        // Initialize Gin
+        <span class="cov0" title="0">router := gin.Default()
+
+        // Apply global middleware
+        router.Use(middleware.CORS())
+        router.Use(middleware.RateLimiter())
+        router.Use(middleware.SecurityHeaders())
+        router.Use(middleware.RequestLogger())
+
+        // Initialize modules
+        initAuthModule(router, db)
+
+        // Health check
+        router.GET("/health", func(c *gin.Context) </span><span class="cov0" title="0">{
+                c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+        }</span>)
+
+        // Start server with graceful shutdown
+        <span class="cov0" title="0">srv := &amp;http.Server{
+                Addr:         ":" + getEnv("PORT", "8080"),
+                Handler:      router,
+                ReadTimeout:  15 * time.Second,
+                WriteTimeout: 15 * time.Second,
+                IdleTimeout:  60 * time.Second,
+        }
+
+        go func() </span><span class="cov0" title="0">{
+                log.Printf("Server starting on port %s", srv.Addr)
+                if err := srv.ListenAndServe(); err != nil &amp;&amp; err != http.ErrServerClosed </span><span class="cov0" title="0">{
+                        log.Fatal("Failed to start server:", err)
+                }</span>
+        }()
+
+        // Graceful shutdown
+        <span class="cov0" title="0">quit := make(chan os.Signal, 1)
+        signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+        &lt;-quit
+
+        log.Println("Shutting down server...")
+        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+        defer cancel()
+
+        if err := srv.Shutdown(ctx); err != nil </span><span class="cov0" title="0">{
+                log.Fatal("Server forced to shutdown:", err)
+        }</span>
+
+        <span class="cov0" title="0">log.Println("Server exited")</span>
+}
+
+func initDB() (*gorm.DB, error) <span class="cov0" title="0">{
+        dsn := getEnv("DATABASE_URL", "host=localhost user=postgres password=postgres dbname=myapp port=5432 sslmode=disable")
+        
+        // Try to connect
+        db, err := gorm.Open(postgres.Open(dsn), &amp;gorm.Config{})
+        if err != nil </span><span class="cov0" title="0">{
+                // If database doesn't exist, try to create it
+                log.Println("Database doesn't exist, attempting to create it...")
+                
+                // Connect to postgres database to create our database
+                createDBDSN := "host=localhost user=postgres password=postgres dbname=postgres port=5432 sslmode=disable"
+                tempDB, err := gorm.Open(postgres.Open(createDBDSN), &amp;gorm.Config{})
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                
+                // Create database
+                <span class="cov0" title="0">createSQL := "CREATE DATABASE myapp"
+                if err := tempDB.Exec(createSQL).Error; err != nil </span><span class="cov0" title="0">{
+                        // Ignore error if database already exists
+                        if !strings.Contains(err.Error(), "already exists") </span><span class="cov0" title="0">{
+                                return nil, err
+                        }</span>
+                }
+                
+                <span class="cov0" title="0">log.Println("Database created successfully")
+                
+                // Now connect to the new database
+                db, err = gorm.Open(postgres.Open(dsn), &amp;gorm.Config{})
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+        }
+        
+        <span class="cov0" title="0">return db, nil</span>
+}
+
+func initAuthModule(router *gin.Engine, db *gorm.DB) <span class="cov0" title="0">{
+        // Initialize layers
+        userRepo := authRepo.NewUserRepository(db)
+        authUC := authUsecase.NewAuthUsecase(userRepo, getEnv("JWT_SECRET", "your-secret-key"))
+        
+        // Register routes
+        authHttp.NewAuthHandler(router, authUC)
+}</span>
+
+func getEnv(key, defaultValue string) string <span class="cov0" title="0">{
+        if value := os.Getenv(key); value != "" </span><span class="cov0" title="0">{
+                return value
+        }</span>
+        <span class="cov0" title="0">return defaultValue</span>
+}</pre>
+		
+		<pre class="file" id="file1" style="display: none">// internal/auth/delivery/http/auth_handler.go
+package http
+
+import (
+        "net/http"
+
+        "app/internal/auth"
+        "app/pkg/middleware"
+
+        "github.com/gin-gonic/gin"
+)
+
+type authHandler struct {
+        authUsecase auth.AuthUsecase
+}
+
+// NewAuthHandler initializes auth routes
+func NewAuthHandler(router *gin.Engine, authUC auth.AuthUsecase) <span class="cov0" title="0">{
+        handler := &amp;authHandler{
+                authUsecase: authUC,
+        }
+
+        // Public routes
+        authGroup := router.Group("/api/v1/auth")
+        </span><span class="cov0" title="0">{
+                authGroup.POST("/register", handler.Register)
+                authGroup.POST("/login", handler.Login)
+        }</span>
+
+        // Protected routes
+        <span class="cov0" title="0">protectedGroup := router.Group("/api/v1/auth")
+        protectedGroup.Use(middleware.AuthMiddleware())
+        </span><span class="cov0" title="0">{
+                protectedGroup.POST("/logout", handler.Logout)
+                protectedGroup.GET("/profile", handler.GetProfile)
+                protectedGroup.PUT("/change-password", handler.ChangePassword)
+        }</span>
+}
+
+func (h *authHandler) Register(c *gin.Context) <span class="cov8" title="1">{
+        var req auth.RegisterRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov8" title="1">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov8" title="1">response, err := h.authUsecase.Register(req)
+        if err != nil </span><span class="cov8" title="1">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov8" title="1">c.JSON(http.StatusCreated, gin.H{
+                "message": "User registered successfully",
+                "data":    response,
+        })</span>
+}
+
+func (h *authHandler) Login(c *gin.Context) <span class="cov8" title="1">{
+        var req auth.LoginRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov8" title="1">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov8" title="1">response, err := h.authUsecase.Login(req)
+        if err != nil </span><span class="cov8" title="1">{
+                c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov8" title="1">c.JSON(http.StatusOK, gin.H{
+                "message": "Login successful",
+                "data":    response,
+        })</span>
+}
+
+func (h *authHandler) Logout(c *gin.Context) <span class="cov8" title="1">{
+        userID, _ := c.Get("user_id")
+        
+        if err := h.authUsecase.Logout(userID.(uint)); err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov8" title="1">c.JSON(http.StatusOK, gin.H{
+                "message": "Logout successful",
+        })</span>
+}
+
+func (h *authHandler) GetProfile(c *gin.Context) <span class="cov8" title="1">{
+        userID, _ := c.Get("user_id")
+        
+        profile, err := h.authUsecase.GetProfile(userID.(uint))
+        if err != nil </span><span class="cov8" title="1">{
+                c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov8" title="1">c.JSON(http.StatusOK, gin.H{
+                "message": "Profile retrieved successfully",
+                "data":    profile,
+        })</span>
+}
+
+func (h *authHandler) ChangePassword(c *gin.Context) <span class="cov8" title="1">{
+        userID, _ := c.Get("user_id")
+        
+        var req auth.ChangePasswordRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov8" title="1">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov8" title="1">if err := h.authUsecase.ChangePassword(userID.(uint), req); err != nil </span><span class="cov8" title="1">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov8" title="1">c.JSON(http.StatusOK, gin.H{
+                "message": "Password changed successfully",
+        })</span>
+}</pre>
+		
+		<pre class="file" id="file2" style="display: none">// internal/auth/domain.go
+package auth
+
+import (
+        "time"
+
+        "gorm.io/gorm"
+)
+
+// User represents the user domain model
+type User struct {
+        ID        uint           `gorm:"primarykey" json:"id"`
+        Email     string         `gorm:"uniqueIndex;not null" json:"email"`
+        Password  string         `gorm:"not null" json:"-"`
+        FirstName string         `json:"first_name"`
+        LastName  string         `json:"last_name"`
+        IsActive  bool           `gorm:"default:true" json:"is_active"`
+        CreatedAt time.Time      `json:"created_at"`
+        UpdatedAt time.Time      `json:"updated_at"`
+        DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+// UserRepository defines the interface for user data operations
+type UserRepository interface {
+        Create(user *User) error
+        FindByID(id uint) (*User, error)
+        FindByEmail(email string) (*User, error)
+        Update(user *User) error
+        Delete(id uint) error
+}
+
+// AuthUsecase defines the interface for authentication business logic
+type AuthUsecase interface {
+        Register(req RegisterRequest) (*AuthResponse, error)
+        Login(req LoginRequest) (*AuthResponse, error)
+        Logout(userID uint) error
+        GetProfile(userID uint) (*UserResponse, error)
+        ChangePassword(userID uint, req ChangePasswordRequest) error
+}
+
+// DTOs (Data Transfer Objects)
+type RegisterRequest struct {
+        Email     string `json:"email" binding:"required,email"`
+        Password  string `json:"password" binding:"required,min=8"`
+        FirstName string `json:"first_name" binding:"required"`
+        LastName  string `json:"last_name" binding:"required"`
+}
+
+type LoginRequest struct {
+        Email    string `json:"email" binding:"required,email"`
+        Password string `json:"password" binding:"required"`
+}
+
+type ChangePasswordRequest struct {
+        CurrentPassword string `json:"current_password" binding:"required"`
+        NewPassword     string `json:"new_password" binding:"required,min=8"`
+}
+
+type AuthResponse struct {
+        Token string        `json:"token"`
+        User  *UserResponse `json:"user"`
+}
+
+type UserResponse struct {
+        ID        uint      `json:"id"`
+        Email     string    `json:"email"`
+        FirstName string    `json:"first_name"`
+        LastName  string    `json:"last_name"`
+        IsActive  bool      `json:"is_active"`
+        CreatedAt time.Time `json:"created_at"`
+}
+
+// ToUserResponse converts User to UserResponse
+func (u *User) ToUserResponse() *UserResponse <span class="cov0" title="0">{
+        return &amp;UserResponse{
+                ID:        u.ID,
+                Email:     u.Email,
+                FirstName: u.FirstName,
+                LastName:  u.LastName,
+                IsActive:  u.IsActive,
+                CreatedAt: u.CreatedAt,
+        }
+}</pre>
+		
+		<pre class="file" id="file3" style="display: none">// internal/auth/repository/postgres/user_repository.go
+package postgres
+
+import (
+        "errors"
+
+        "app/internal/auth"
+
+        "gorm.io/gorm"
+)
+
+type userRepository struct {
+        db *gorm.DB
+}
+
+// NewUserRepository creates a new instance of userRepository
+func NewUserRepository(db *gorm.DB) auth.UserRepository <span class="cov0" title="0">{
+        return &amp;userRepository{db: db}
+}</span>
+
+func (r *userRepository) Create(user *auth.User) error <span class="cov0" title="0">{
+        if err := r.db.Create(user).Error; err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (r *userRepository) FindByID(id uint) (*auth.User, error) <span class="cov0" title="0">{
+        var user auth.User
+        if err := r.db.First(&amp;user, id).Error; err != nil </span><span class="cov0" title="0">{
+                if errors.Is(err, gorm.ErrRecordNotFound) </span><span class="cov0" title="0">{
+                        return nil, errors.New("user not found")
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+        <span class="cov0" title="0">return &amp;user, nil</span>
+}
+
+func (r *userRepository) FindByEmail(email string) (*auth.User, error) <span class="cov0" title="0">{
+        var user auth.User
+        if err := r.db.Where("email = ?", email).First(&amp;user).Error; err != nil </span><span class="cov0" title="0">{
+                if errors.Is(err, gorm.ErrRecordNotFound) </span><span class="cov0" title="0">{
+                        return nil, errors.New("user not found")
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+        <span class="cov0" title="0">return &amp;user, nil</span>
+}
+
+func (r *userRepository) Update(user *auth.User) error <span class="cov0" title="0">{
+        if err := r.db.Save(user).Error; err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (r *userRepository) Delete(id uint) error <span class="cov0" title="0">{
+        if err := r.db.Delete(&amp;auth.User{}, id).Error; err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}</pre>
+		
+		<pre class="file" id="file4" style="display: none">// internal/auth/usecase/auth_usecase.go
+package usecase
+
+import (
+        "errors"
+        "time"
+
+        "app/internal/auth"
+
+        "github.com/golang-jwt/jwt/v5"
+        "golang.org/x/crypto/bcrypt"
+)
+
+type authUsecase struct {
+        userRepo  auth.UserRepository
+        jwtSecret string
+}
+
+// NewAuthUsecase creates a new instance of authUsecase
+func NewAuthUsecase(userRepo auth.UserRepository, jwtSecret string) auth.AuthUsecase <span class="cov8" title="1">{
+        return &amp;authUsecase{
+                userRepo:  userRepo,
+                jwtSecret: jwtSecret,
+        }
+}</span>
+
+func (u *authUsecase) Register(req auth.RegisterRequest) (*auth.AuthResponse, error) <span class="cov8" title="1">{
+        // Check if user already exists
+        existingUser, _ := u.userRepo.FindByEmail(req.Email)
+        if existingUser != nil </span><span class="cov8" title="1">{
+                return nil, errors.New("email already registered")
+        }</span>
+
+        // Hash password
+        <span class="cov8" title="1">hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, errors.New("failed to hash password")
+        }</span>
+
+        // Create user
+        <span class="cov8" title="1">user := &amp;auth.User{
+                Email:     req.Email,
+                Password:  string(hashedPassword),
+                FirstName: req.FirstName,
+                LastName:  req.LastName,
+                IsActive:  true,
+        }
+
+        if err := u.userRepo.Create(user); err != nil </span><span class="cov8" title="1">{
+                return nil, errors.New("failed to create user")
+        }</span>
+
+        // Generate JWT token
+        <span class="cov8" title="1">token, err := u.generateToken(user.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, errors.New("failed to generate token")
+        }</span>
+
+        <span class="cov8" title="1">return &amp;auth.AuthResponse{
+                Token: token,
+                User:  user.ToUserResponse(),
+        }, nil</span>
+}
+
+func (u *authUsecase) Login(req auth.LoginRequest) (*auth.AuthResponse, error) <span class="cov8" title="1">{
+        // Find user by email
+        user, err := u.userRepo.FindByEmail(req.Email)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, errors.New("invalid credentials")
+        }</span>
+
+        // Check if user is active
+        <span class="cov8" title="1">if !user.IsActive </span><span class="cov8" title="1">{
+                return nil, errors.New("account is inactive")
+        }</span>
+
+        // Verify password
+        <span class="cov8" title="1">if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil </span><span class="cov8" title="1">{
+                return nil, errors.New("invalid credentials")
+        }</span>
+
+        // Generate JWT token
+        <span class="cov8" title="1">token, err := u.generateToken(user.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, errors.New("failed to generate token")
+        }</span>
+
+        <span class="cov8" title="1">return &amp;auth.AuthResponse{
+                Token: token,
+                User:  user.ToUserResponse(),
+        }, nil</span>
+}
+
+func (u *authUsecase) Logout(userID uint) error <span class="cov8" title="1">{
+        // In a production environment, you might want to:
+        // 1. Blacklist the token
+        // 2. Clear refresh tokens from database
+        // 3. Log the logout event
+        return nil
+}</span>
+
+func (u *authUsecase) GetProfile(userID uint) (*auth.UserResponse, error) <span class="cov8" title="1">{
+        user, err := u.userRepo.FindByID(userID)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, errors.New("user not found")
+        }</span>
+
+        <span class="cov8" title="1">return user.ToUserResponse(), nil</span>
+}
+
+func (u *authUsecase) ChangePassword(userID uint, req auth.ChangePasswordRequest) error <span class="cov8" title="1">{
+        // Find user
+        user, err := u.userRepo.FindByID(userID)
+        if err != nil </span><span class="cov8" title="1">{
+                return errors.New("user not found")
+        }</span>
+
+        // Verify current password
+        <span class="cov8" title="1">if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.CurrentPassword)); err != nil </span><span class="cov8" title="1">{
+                return errors.New("current password is incorrect")
+        }</span>
+
+        // Hash new password
+        <span class="cov8" title="1">hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+        if err != nil </span><span class="cov0" title="0">{
+                return errors.New("failed to hash password")
+        }</span>
+
+        // Update password
+        <span class="cov8" title="1">user.Password = string(hashedPassword)
+        if err := u.userRepo.Update(user); err != nil </span><span class="cov8" title="1">{
+                return errors.New("failed to update password")
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (u *authUsecase) generateToken(userID uint) (string, error) <span class="cov8" title="1">{
+        claims := jwt.MapClaims{
+                "user_id": userID,
+                "exp":     time.Now().Add(time.Hour * 24).Unix(), // 24 hours
+                "iat":     time.Now().Unix(),
+        }
+
+        token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+        return token.SignedString([]byte(u.jwtSecret))
+}</pre>
+		
+		<pre class="file" id="file5" style="display: none">package middleware
+
+import (
+        "net/http"
+        "os"
+        "strings"
+
+        "github.com/gin-gonic/gin"
+        "github.com/golang-jwt/jwt/v5"
+)
+
+// AuthMiddleware validates JWT tokens
+func AuthMiddleware() gin.HandlerFunc <span class="cov8" title="1">{
+        return func(c *gin.Context) </span><span class="cov8" title="1">{
+                authHeader := c.GetHeader("Authorization")
+                if authHeader == "" </span><span class="cov8" title="1">{
+                        c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+                        c.Abort()
+                        return
+                }</span>
+
+                // Extract token from "Bearer &lt;token&gt;"
+                <span class="cov8" title="1">parts := strings.Split(authHeader, " ")
+                if len(parts) != 2 || parts[0] != "Bearer" </span><span class="cov8" title="1">{
+                        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
+                        c.Abort()
+                        return
+                }</span>
+
+                <span class="cov8" title="1">tokenString := parts[1]
+                jwtSecret := os.Getenv("JWT_SECRET")
+                if jwtSecret == "" </span><span class="cov0" title="0">{
+                        jwtSecret = "your-secret-key"
+                }</span>
+
+                // Parse and validate token
+                <span class="cov8" title="1">token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) </span><span class="cov8" title="1">{
+                        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok </span><span class="cov0" title="0">{
+                                return nil, jwt.ErrSignatureInvalid
+                        }</span>
+                        <span class="cov8" title="1">return []byte(jwtSecret), nil</span>
+                })
+
+                <span class="cov8" title="1">if err != nil || !token.Valid </span><span class="cov8" title="1">{
+                        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+                        c.Abort()
+                        return
+                }</span>
+
+                // Extract claims
+                <span class="cov8" title="1">if claims, ok := token.Claims.(jwt.MapClaims); ok </span><span class="cov8" title="1">{
+                        c.Set("user_id", uint(claims["user_id"].(float64)))
+                }</span> else<span class="cov0" title="0"> {
+                        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+                        c.Abort()
+                        return
+                }</span>
+
+                <span class="cov8" title="1">c.Next()</span>
+        }
+}</pre>
+		
+		<pre class="file" id="file6" style="display: none">package middleware
+
+import "github.com/gin-gonic/gin"
+
+// CORS middleware for cross-origin requests
+func CORS() gin.HandlerFunc <span class="cov8" title="1">{
+        return func(c *gin.Context) </span><span class="cov8" title="1">{
+                c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+                c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+                c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+                c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
+
+                if c.Request.Method == "OPTIONS" </span><span class="cov8" title="1">{
+                        c.AbortWithStatus(204)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">c.Next()</span>
+        }
+}</pre>
+		
+		<pre class="file" id="file7" style="display: none">package middleware
+
+import (
+        "log"
+        "time"
+
+        "github.com/gin-gonic/gin"
+)
+
+// RequestLogger logs incoming requests
+func RequestLogger() gin.HandlerFunc <span class="cov8" title="1">{
+        return func(c *gin.Context) </span><span class="cov8" title="1">{
+                start := time.Now()
+                path := c.Request.URL.Path
+                method := c.Request.Method
+
+                c.Next()
+
+                latency := time.Since(start)
+                statusCode := c.Writer.Status()
+
+                log.Printf("[%s] %s %s - Status: %d - Duration: %v",
+                        method,
+                        path,
+                        c.ClientIP(),
+                        statusCode,
+                        latency,
+                )
+        }</span>
+}</pre>
+		
+		<pre class="file" id="file8" style="display: none">package middleware
+
+import (
+        "net/http"
+        "sync"
+        "time"
+
+        "github.com/gin-gonic/gin"
+)
+
+type visitor struct {
+        lastSeen time.Time
+        count    int
+}
+
+var (
+        visitors = make(map[string]*visitor)
+        mu       sync.RWMutex
+)
+
+// RateLimiter limits requests per IP
+func RateLimiter() gin.HandlerFunc <span class="cov8" title="1">{
+        // Clean up old visitors every minute
+        go cleanupVisitors()
+
+        return func(c *gin.Context) </span><span class="cov8" title="1">{
+                ip := c.ClientIP()
+
+                mu.Lock()
+                v, exists := visitors[ip]
+                if !exists </span><span class="cov8" title="1">{
+                        visitors[ip] = &amp;visitor{
+                                lastSeen: time.Now(),
+                                count:    1,
+                        }
+                        mu.Unlock()
+                        c.Next()
+                        return
+                }</span>
+
+                // Reset count if more than 1 minute has passed
+                <span class="cov8" title="1">if time.Since(v.lastSeen) &gt; time.Minute </span><span class="cov0" title="0">{
+                        v.count = 1
+                        v.lastSeen = time.Now()
+                        mu.Unlock()
+                        c.Next()
+                        return
+                }</span>
+
+                // Check if limit exceeded (100 requests per minute)
+                <span class="cov8" title="1">if v.count &gt;= 100 </span><span class="cov8" title="1">{
+                        mu.Unlock()
+                        c.JSON(http.StatusTooManyRequests, gin.H{
+                                "error": "Rate limit exceeded. Please try again later.",
+                        })
+                        c.Abort()
+                        return
+                }</span>
+
+                <span class="cov8" title="1">v.count++
+                v.lastSeen = time.Now()
+                mu.Unlock()
+                c.Next()</span>
+        }
+}
+
+func cleanupVisitors() <span class="cov8" title="1">{
+        for </span><span class="cov8" title="1">{
+                time.Sleep(time.Minute)
+                mu.Lock()
+                for ip, v := range visitors </span><span class="cov0" title="0">{
+                        if time.Since(v.lastSeen) &gt; 3*time.Minute </span><span class="cov0" title="0">{
+                                delete(visitors, ip)
+                        }</span>
+                }
+                <span class="cov0" title="0">mu.Unlock()</span>
+        }
+}</pre>
+		
+		<pre class="file" id="file9" style="display: none">package middleware
+
+import "github.com/gin-gonic/gin"
+
+// SecurityHeaders adds security headers to responses
+func SecurityHeaders() gin.HandlerFunc <span class="cov8" title="1">{
+        return func(c *gin.Context) </span><span class="cov8" title="1">{
+                c.Writer.Header().Set("X-Content-Type-Options", "nosniff")
+                c.Writer.Header().Set("X-Frame-Options", "DENY")
+                c.Writer.Header().Set("X-XSS-Protection", "1; mode=block")
+                c.Writer.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+                c.Writer.Header().Set("Content-Security-Policy", "default-src 'self'")
+                c.Writer.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+                c.Next()
+        }</span>
+}</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

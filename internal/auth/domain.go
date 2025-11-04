@@ -1,3 +1,4 @@
+// internal/auth/domain.go
 package auth
 
 import (

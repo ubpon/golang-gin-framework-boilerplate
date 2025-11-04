@@ -1,3 +1,4 @@
+// internal/auth/usecase/auth_usecase.go
 package usecase
 
 import (
@@ -15,6 +16,7 @@ type authUsecase struct {
 	jwtSecret string
 }
 
+// NewAuthUsecase creates a new instance of authUsecase
 func NewAuthUsecase(userRepo auth.UserRepository, jwtSecret string) auth.AuthUsecase {
 	return &authUsecase{
 		userRepo:  userRepo,
@@ -29,11 +31,13 @@ func (u *authUsecase) Register(req auth.RegisterRequest) (*auth.AuthResponse, er
 		return nil, errors.New("email already registered")
 	}
 
+	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, errors.New("failed to hash password")
 	}
 
+	// Create user
 	user := &auth.User{
 		Email:     req.Email,
 		Password:  string(hashedPassword),
@@ -59,19 +63,23 @@ func (u *authUsecase) Register(req auth.RegisterRequest) (*auth.AuthResponse, er
 }
 
 func (u *authUsecase) Login(req auth.LoginRequest) (*auth.AuthResponse, error) {
+	// Find user by email
 	user, err := u.userRepo.FindByEmail(req.Email)
 	if err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 
+	// Check if user is active
 	if !user.IsActive {
 		return nil, errors.New("account is inactive")
 	}
 
+	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 
+	// Generate JWT token
 	token, err := u.generateToken(user.ID)
 	if err != nil {
 		return nil, errors.New("failed to generate token")

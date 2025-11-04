@@ -16,10 +16,30 @@ build:
 	go build -o bin/api cmd/api/main.go
 
 test:
-	go test -v ./...
+	@echo "Running all tests..."
+	go test -v -cover ./...
+
+test-handler:
+	@echo "Running handler tests..."
+	go test -v -cover ./internal/auth/delivery/http/...
+
+test-usecase:
+	@echo "Running usecase tests..."
+	go test -v -cover ./internal/auth/usecase/...
+
+test-middleware:
+	@echo "Running middleware tests..."
+	go test -v -cover ./pkg/middleware/...
+
+test-coverage:
+	@echo "Generating coverage report..."
+	go test -v -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
 
 clean:
 	rm -rf bin/
+	rm -f coverage.out coverage.html
 
 migrate:
 	go run cmd/api/main.go

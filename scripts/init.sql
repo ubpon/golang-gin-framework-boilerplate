@@ -1,5 +1,3 @@
--- scripts/init.sql
--- Create database if it doesn't exist
 CREATE DATABASE myapp;
 
 -- Connect to the database

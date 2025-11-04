@@ -1,3 +1,4 @@
+// internal/auth/repository/postgres/user_repository.go
 package postgres
 
 import (
@@ -12,6 +13,7 @@ type userRepository struct {
 	db *gorm.DB
 }
 
+// NewUserRepository creates a new instance of userRepository
 func NewUserRepository(db *gorm.DB) auth.UserRepository {
 	return &userRepository{db: db}
 }

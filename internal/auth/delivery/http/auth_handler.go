@@ -1,3 +1,4 @@
+// internal/auth/delivery/http/auth_handler.go
 package http
 
 import (
@@ -13,17 +14,20 @@ type authHandler struct {
 	authUsecase auth.AuthUsecase
 }
 
+// NewAuthHandler initializes auth routes
 func NewAuthHandler(router *gin.Engine, authUC auth.AuthUsecase) {
 	handler := &authHandler{
 		authUsecase: authUC,
 	}
 
+	// Public routes
 	authGroup := router.Group("/api/v1/auth")
 	{
 		authGroup.POST("/register", handler.Register)
 		authGroup.POST("/login", handler.Login)
 	}
 
+	// Protected routes
 	protectedGroup := router.Group("/api/v1/auth")
 	protectedGroup.Use(middleware.AuthMiddleware())
 	{
