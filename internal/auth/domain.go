@@ -1,4 +1,3 @@
-// internal/auth/domain.go
 package auth
 
 import (
@@ -7,7 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// User represents the user domain model
 type User struct {
 	ID        uint           `gorm:"primarykey" json:"id"`
 	Email     string         `gorm:"uniqueIndex;not null" json:"email"`
@@ -20,7 +18,6 @@ type User struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// UserRepository defines the interface for user data operations
 type UserRepository interface {
 	Create(user *User) error
 	FindByID(id uint) (*User, error)
@@ -29,7 +26,6 @@ type UserRepository interface {
 	Delete(id uint) error
 }
 
-// AuthUsecase defines the interface for authentication business logic
 type AuthUsecase interface {
 	Register(req RegisterRequest) (*AuthResponse, error)
 	Login(req LoginRequest) (*AuthResponse, error)
@@ -38,7 +34,6 @@ type AuthUsecase interface {
 	ChangePassword(userID uint, req ChangePasswordRequest) error
 }
 
-// DTOs (Data Transfer Objects)
 type RegisterRequest struct {
 	Email     string `json:"email" binding:"required,email"`
 	Password  string `json:"password" binding:"required,min=8"`
@@ -70,7 +65,6 @@ type UserResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// ToUserResponse converts User to UserResponse
 func (u *User) ToUserResponse() *UserResponse {
 	return &UserResponse{
 		ID:        u.ID,

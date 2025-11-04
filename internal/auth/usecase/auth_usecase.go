@@ -7,19 +7,30 @@ import (
 
 	"app/internal/auth"
 
+	"app/pkg/email"
+
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type authUsecase struct {
 	userRepo  auth.UserRepository
+	passwordResetRepo auth.PasswordResetRepository
+	emailService      *email.EmailService
 	jwtSecret string
 }
 
 // NewAuthUsecase creates a new instance of authUsecase
-func NewAuthUsecase(userRepo auth.UserRepository, jwtSecret string) auth.AuthUsecase {
+func NewAuthUsecase(
+	userRepo auth.UserRepository,
+	passwordResetRepo auth.PasswordResetRepository,
+	emailService *email.EmailService,
+	jwtSecret string,
+) auth.AuthUsecase {
 	return &authUsecase{
 		userRepo:  userRepo,
+		passwordResetRepo: passwordResetRepo,
+		emailService:      emailService,
 		jwtSecret: jwtSecret,
 	}
 }
@@ -132,7 +143,37 @@ func (u *authUsecase) ChangePassword(userID uint, req auth.ChangePasswordRequest
 		return errors.New("failed to update password")
 	}
 
+	go u.emailService.SendPasswordResetConfirmation(user.Email, user.FirstName)
+
 	return nil
+}
+
+func (u *authUsecase) ForgotPassword(req auth.ForgotPasswordRequest) (*auth.ForgotPasswordResponse, error) {
+	user, err := u.userRepo.FindByEmail(req.Email)
+	if err != nil {
+		return &auth.ForgotPasswordResponse{
+			Message: "If an account exists with this email, you will receive a password reset link",
+		}, nil
+	}
+
+	resetToken := email.GenerateResetToken()
+	
+	passwordReset := &auth.PasswordReset{
+		UserID:    user.ID,
+		Token:     resetToken,
+		ExpiresAt: time.Now().Add(1 * time.Hour), // 1 hour expiration
+		Used:      false,
+	}
+
+	if err := u.passwordResetRepo.Create(passwordReset); err != nil {
+		return nil, errors.New("failed to create password reset token")
+	}
+
+	go u.emailService.SendForgotPasswordEmail(user.Email, user.FirstName, resetToken)
+
+	return &auth.ForgotPasswordResponse{
+		Message: "If an account exists with this email, you will receive a password reset link",
+	}, nil
 }
 
 func (u *authUsecase) generateToken(userID uint) (string, error) {
